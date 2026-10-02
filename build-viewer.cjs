@@ -8,5 +8,5 @@ fs.writeFileSync(path.join(pub,'model.html'),html);
 const offlineDir=path.join(root,'..','bunker-3d-offline');fs.mkdirSync(offlineDir,{recursive:true});
 fs.writeFileSync(path.join(offlineDir,'打开三维堡垒.html'),html);
 fs.copyFileSync(path.join(pub,'three.min.js'),path.join(offlineDir,'three.min.js'));
-fs.writeFileSync(path.join(offlineDir,'使用说明.txt'),'双击“打开三维堡垒.html”，使用支持 WebGL 的现代浏览器，无需联网。\n鼠标左键拖动旋转，滚轮缩放，右键拖动平移。触屏单指旋转、双指缩放。方向键旋转，加减键缩放。\n选择整体或 B1–B5；楼层展开用于查看内部；点击房间或用下拉框选择房间。\nB1 无人机间位于重卡库与总控室之间，黄色路线通往室外起降点。\n保存当前视角导出无文字标注的模型截图。导出 OBJ 保存当前可见部分，同时下载 MTL；若浏览器限制连续下载，请允许多文件下载。两个文件应放在同一目录。\n随包提供默认整体展开状态的 bunker.obj 和 bunker.mtl，可导入 Blender 等建模软件。\n模型为简化几何空间概念，不是精确复刻效果图。比例和容量未经核算，不可直接用于施工。\n');
+fs.writeFileSync(path.join(offlineDir,'使用说明.txt'),'双击“打开三维堡垒.html”，使用支持 WebGL 的现代浏览器，无需联网。\n鼠标左键拖动旋转，滚轮缩放，右键拖动平移。触屏单指旋转、双指缩放。方向键旋转，加减键缩放。\n选择整体或 B1–B5；楼层展开用于查看内部；点击房间或用下拉框选择房间，再点“聚焦所选空间”。双击房间也可聚焦。\nB1 无人机间位于重卡库与总控室之间，内设独立枪械储存隔间；B4 维修工坊也有一处。柜内只有外形展示，无内部构造。\n加厚顶部岩层，延长折线车道；黄色路线从无人机间经专用通道和货运升降段抵达室外起降点。岩层尺度为未标定示意，楼层展开间距不代表埋深。\n保存当前视角导出无文字标注的模型截图。导出 OBJ 保存当前可见部分，同时下载 MTL，保留分组名称与柜门透明度；若浏览器限制连续下载，请允许多文件下载。两个文件应放在同一目录。\n随包提供整体合层状态的 bunker.obj 和 bunker.mtl，可导入 Blender 等建模软件。\n模型为简化几何空间概念，不是精确复刻效果图。比例、埋深和容量未经核算，不可直接用于施工。\n');
 console.log('Standalone and offline viewer built.');
