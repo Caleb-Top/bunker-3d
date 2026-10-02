@@ -1,0 +1,139 @@
+<div id="bunker-viewer">
+  <div class="viz-row"><span class="viz-badge">五层空间模型</span><span class="text-small">单人堡垒 · 无人机位于车库与总控之间</span></div>
+  <div class="viz-controls" id="floor-controls" aria-label="查看楼层">
+    <button class="btn" data-floor="all" aria-pressed="true">整体</button>
+    <button class="btn" data-floor="0" aria-pressed="false">B1 车库与生活</button>
+    <button class="btn" data-floor="1" aria-pressed="false">B2 医疗休闲</button>
+    <button class="btn" data-floor="2" aria-pressed="false">B3 农业</button>
+    <button class="btn" data-floor="3" aria-pressed="false">B4 仓储</button>
+    <button class="btn" data-floor="4" aria-pressed="false">B5 水电</button>
+  </div>
+  <div class="viz-controls">
+    <label class="form-label">楼层展开 <output id="gap-value">6</output><input id="gap" class="form-range" type="range" min="0" max="14" value="6"></label>
+    <label class="form-check"><input id="rock" class="form-check-input" type="checkbox"><span class="form-check-label">山体示意</span></label>
+    <label class="form-check"><input id="labels" class="form-check-input" type="checkbox" checked><span class="form-check-label">空间标注</span></label>
+    <label class="form-check"><input id="route" class="form-check-input" type="checkbox" checked><span class="form-check-label">无人机转运路线</span></label>
+    <button id="home" class="btn">总览视角</button><button id="top" class="btn">俯视</button>
+  </div>
+  <div id="model-stage"><canvas id="model-canvas" tabindex="0" aria-label="五层堡垒三维模型。拖动旋转，滚轮缩放，右键拖动平移；方向键旋转，加减键缩放。"></canvas><div id="model-labels" aria-hidden="true"></div><div id="model-message" role="status">正在构建三维空间…</div></div>
+  <div class="viz-controls"><label class="form-label">选择空间<select class="form-select" id="room-select"><option value="">点击模型或选择空间</option></select></label><button class="btn" id="export-model">导出 OBJ 模型</button><button class="btn" id="export-image">保存当前视角</button></div>
+  <p id="room-detail" aria-live="polite">拖动旋转 · 滚轮缩放 · 右键拖动平移 · 双指缩放 · 点击房间查看说明</p>
+  <p class="text-small">空间概念模型；设备为简化几何，非施工图。尺寸、结构、防护等级和 200 年保障能力均未核算。</p>
+</div>
+<style>
+#bunker-viewer{--stage-bg:var(--background);width:100%;color:var(--foreground)}
+#bunker-viewer .viz-controls{margin-block:12px}#model-stage{position:relative;height:650px;overflow:hidden;background:var(--stage-bg)}
+#model-canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}#model-canvas:active{cursor:grabbing}
+#model-labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}.model-tag{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;color:var(--foreground);background:var(--background);padding:3px 6px;border:1px solid var(--border);border-radius:3px;font-size:12px}
+#model-message{position:absolute;inset:45% 12% auto;text-align:center;pointer-events:none;color:var(--foreground)}
+#room-detail{min-height:2.8em}#bunker-viewer select{max-width:100%}@media(max-width:650px){#model-stage{height:500px}.model-tag{font-size:11px}#bunker-viewer .viz-controls{gap:8px}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(() => {
+  'use strict';
+  const root=document.getElementById('bunker-viewer'), $=id=>root.querySelector('#'+id);
+  if(!window.THREE){$('model-message').textContent='三维组件未能加载。请使用完整离线包打开。';return;}
+  const T=window.THREE, canvas=$('model-canvas'), stage=$('model-stage');
+  let renderer;
+  try{renderer=new T.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});}catch(e){$('model-message').textContent='浏览器未能启用 WebGL，请开启硬件加速后重新打开。';return;}
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.25;
+  const scene=new T.Scene(), model=new T.Group();scene.add(model);
+  const camera=new T.PerspectiveCamera(38,1,.1,1800), light=new T.DirectionalLight(0xfff0d8,2.7);light.position.set(-50,120,100);scene.add(light,new T.HemisphereLight(0xd7ebff,0x72624d,2.5));
+  const fill=new T.DirectionalLight(0xa4c9ff,1.3);fill.position.set(80,35,-50);scene.add(fill);
+  const palette={slab:0x667785,wall:0xb4b6af,metal:0x374b5b,wood:0xa0764c,blue:0x3688af,green:0x467e55,yellow:0xe4b955,cloth:0xe0c8a2,dark:0x20303d};
+  const mats=new Map();function mat(c){if(!mats.has(c))mats.set(c,new T.MeshStandardMaterial({color:c,roughness:.75,metalness:.12}));return mats.get(c);}
+  const boxGeo=new T.BoxGeometry(1,1,1), cylGeo=new T.CylinderGeometry(1,1,1,16), sphereGeo=new T.SphereGeometry(1,8,6);
+  function box(p,x,y,z,w,h,d,c){const m=new T.Mesh(boxGeo,mat(c));m.position.set(x,y,z);m.scale.set(w,h,d);p.add(m);return m;}
+  function cyl(p,x,y,z,r,h,c){const m=new T.Mesh(cylGeo,mat(c));m.position.set(x,y,z);m.scale.set(r,h,r);p.add(m);return m;}
+  function ball(p,x,y,z,r,c){const m=new T.Mesh(sphereGeo,mat(c));m.position.set(x,y,z);m.scale.setScalar(r);p.add(m);return m;}
+  function pipe(p,a,b,r,c){const av=new T.Vector3(...a),bv=new T.Vector3(...b),delta=bv.clone().sub(av);const m=cyl(p,0,0,0,r,delta.length(),c);m.position.copy(av.add(bv).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),delta.normalize());return m;}
+  function door(p,x,z,w=2.1){box(p,x,1.45,z,w,2.9,.24,palette.metal);box(p,x-w*.28,1.5,z+.16,.1,.7,.1,palette.yellow);box(p,x,3,z,w+.35,.18,.38,palette.wall);}
+  const floors=[],rooms=[],tags=[],floorNames=['车库 · 无人机 · 总控 · 生活','医疗 · 休闲 · 训练','农业 · 育苗 · 水产','大型仓储 · 维修','储水 · 净化 · 能源'];
+  const floorColors=[0xcfac69,0x9bafba,0x73a977,0xb49a77,0x5f9fbe];
+  function tag(text,p,pos,floor,room=null){const el=document.createElement('span');el.className='model-tag';el.textContent=text;$('model-labels').append(el);tags.push({el,parent:p,position:new T.Vector3(...pos),floor,room});}
+  function room(f,name,x,z,w,d,description){const g=new T.Group();g.position.set(x,0,z);f.add(g);const item={id:String(rooms.length),name,floor:f.userData.floor,group:g,x,z,w,d,description};g.userData.room=item.id;rooms.push(item);
+    item.pad=box(g,0,.08,0,w,.16,d,floorColors[item.floor]);
+    // Front-facing doorway stays clear; cutaway walls remain waist high.
+    box(g,-w/2,.8,0,.18,1.6,d,palette.wall);box(g,w/2,.8,0,.18,1.6,d,palette.wall);box(g,0,.8,-d/2,w,1.6,.18,palette.wall);
+    if(w>7){box(g,-w/4-1,.65,d/2,w/2-2,1.3,.18,palette.wall);box(g,w/4+1,.65,d/2,w/2-2,1.3,.18,palette.wall);}
+    tag(name,g,[0,4.9,0],item.floor,item.id);return g;
+  }
+  function shelf(g,x,z,w=4,filled=true){for(const xx of [-w/2,w/2])for(const zz of [-.65,.65])box(g,x+xx,1.7,z+zz,.1,3.4,.1,palette.metal);for(let k=0;k<3;k++){box(g,x,.45+k*1.15,z,w,.1,1.5,palette.metal);if(filled)for(let j=0;j<3;j++)box(g,x-w*.32+j*w*.32,.83+k*1.15,z,w*.25,.65,1.05,j%2?0xc8b28b:0x9d967c);}}
+  function table(g,x,z,w=3,d=1.5){box(g,x,1.25,z,w,.2,d,palette.wood);for(const xx of [-w*.4,w*.4])for(const zz of [-d*.35,d*.35])box(g,x+xx,.65,z+zz,.13,1.2,.13,palette.metal);}
+  function seat(g,x,z){box(g,x,.65,z,1.1,.3,1.1,palette.dark);box(g,x,1.3,z-.48,1.1,1.2,.18,palette.dark);cyl(g,x,.35,z,.12,.7,palette.metal);}
+  function bed(g,x,z){box(g,x,.45,z,2.9,.7,4.6,palette.wood);box(g,x,.9,z,2.8,.35,4.4,palette.cloth);box(g,x,1.16,z-1.6,2.3,.25,.75,0xf0eee6);}
+  function truck(g,x,z){const v=new T.Group();v.name='heavy-truck';v.position.set(x,0,z);g.add(v);box(v,0,1.1,0,3.4,.55,11.7,palette.dark);box(v,0,2.5,-1.4,3.6,2.8,8.5,0x94a29a);box(v,0,2.15,4.25,3.5,2.7,2.6,0xb8c3bd);box(v,0,2.7,5.59,2.95,.95,.05,0x28546b);box(v,0,1.4,5.64,2.7,.45,.12,palette.metal);for(const xx of [-1.8,1.8])for(const zz of [-4,-2,4.2]){const wh=cyl(v,xx,.86,zz,.78,.42,0x20262c);wh.rotation.z=Math.PI/2;}for(const xx of [-1.2,1.2])box(v,xx,1.65,5.65,.55,.3,.07,0xf3da8d);}
+  function drone(g,x,z,s=1){const v=new T.Group();v.name='unarmed-drone';v.position.set(x,1.5,z);v.scale.setScalar(s);g.add(v);box(v,0,0,0,.85,.35,1.2,palette.metal);for(const xx of [-1,1])for(const zz of [-1,1]){pipe(v,[0,0,0],[xx*1.3,0,zz*1.1],.08,palette.metal);const prop=cyl(v,xx*1.3,.12,zz*1.1,.65,.04,0x5c6e77);box(v,xx*.7,-.5,0,.07,.7,1.4,palette.metal);}return v;}
+  function generator(g,x,z,s=1){const v=new T.Group();v.name='generator';v.position.set(x,0,z);v.scale.setScalar(s);g.add(v);box(v,0,.3,0,3.4,.5,5,palette.dark);box(v,0,1.45,0,3,2.2,4.5,0x62735a);for(let k=0;k<5;k++)box(v,-.65+k*.32,1.5,2.27,.1,1.2,.03,palette.dark);box(v,.9,1.85,2.29,.6,.5,.06,0x365c72);pipe(v,[-1,2.4,-1],[-1,3.6,-1],.15,palette.metal);}
+  function crop(g,x,z,w=4){for(let level=0;level<3;level++){box(g,x,.65+level*1.1,z,w,.18,2.4,0x99aaa0);for(let k=0;k<7;k++){const xx=x-w*.4+(k%4)*w*.26,zz=z+(k<4?-.6:.6);ball(g,xx,.98+level*1.1,zz,.36,level%2?0x58944b:0x39774b);}box(g,x,1.55+level*1.1,z,w,.08,.15,0xd9e5bd);}for(const xx of [-w/2,w/2])box(g,x+xx,2,z,.1,4,.1,palette.metal);}
+  for(let i=0;i<5;i++){
+    const f=new T.Group();f.name='B'+(i+1);f.userData.floor=i;model.add(f);floors.push(f);const width=i===3?120:112;
+    box(f,0,-.55,0,width,1.1,38,palette.slab);box(f,0,.75,-18.7,width,1.5,.4,palette.wall);
+    // Rear, walkable, accessible utility aisle and segregated service lines.
+    for(let j=0;j<3;j++)pipe(f,[-width/2+1,2.9+j*.35,-17.4],[width/2-1,2.9+j*.35,-17.4],.12,[0x528faf,0xc59c62,0x749879][j]);
+    for(let x=-48;x<=48;x+=16){box(f,x,1.4,-17,2.4,2.5,.6,palette.metal);box(f,x,1.65,-16.64,1.9,1.4,.05,0x89999e);}
+    box(f,0,-.4,23,17,.8,9,palette.slab);box(f,-7.9,2.8,23,.25,5.6,8,palette.wall);box(f,-.2,2.8,23,.25,5.6,8,palette.wall);box(f,7.9,2.8,23,.25,5.6,8,palette.wall);
+    for(let k=0;k<14;k++)box(f,-4, .12+k*.37,26-k*.47,6,.24,.55,palette.wall);
+    box(f,4,2.5,23,6,5,6,palette.metal);door(f,4,26.1,3.6);door(f,-4,18.7,2.2);door(f,4,18.7,2.2);
+    box(f,60,-.4,0,5,.8,38,palette.slab);box(f,62.5,1,0,.3,2,38,palette.wall);door(f,60,16,2.5);
+    for(let k=0;k<12;k++)box(f,60,.1+k*.4,-10-k*.55,3.5,.2,.65,palette.wall);
+    tag('B'+(i+1)+' '+floorNames[i],f,[-48,1.5,23],i);
+  }
+  let g;
+  g=room(floors[0],'四车位重卡库',-31,-2,46,26,'四个大型重卡停车位、前方通行带与独立车辆入口。转弯半径及净高待核算。');for(let k=0;k<4;k++){truck(g,-17+k*11,-1);for(const dx of [-2.7,2.7])box(g,-17+k*11+dx,.2,0,.08,.03,14,palette.yellow);}shelf(g,-17,-10,4);
+  g=room(floors[0],'独立无人机间',3,-2,20,26,'位于车库与总控室之间。维护、充电、准备气闸分区，通过专用转运通道抵达室外起降点。');for(let k=0;k<3;k++){table(g,-5+k*5,-6,3,2);drone(g,-5+k*5,-6,.65);}drone(g,0,2,1.3);box(g,6,1.5,7,4,3,3,palette.metal);box(g,6,1.6,8.55,3,.9,.1,palette.yellow);door(g,-4,12.5,3);box(g,4,2,-1,.18,4,6,palette.wall);
+  g=room(floors[0],'总监控室',23,-2,18,26,'独立控制室：出入口、各层状态和无人机画面集中显示。模型中的屏幕为示意。');for(let x=-5;x<=5;x+=5)for(let y=0;y<2;y++){box(g,x,2+y*1.8,-10.5,4.5,1.5,.3,palette.dark);box(g,x,2+y*1.8,-10.3,4.1,1.15,.1,0x3d8daf);}for(let k=0;k<3;k++){table(g,-5+k*5,-3,4,2);seat(g,-5+k*5,-.7);}shelf(g,5,8,3);
+  g=room(floors[0],'单人生活区',44,-2,22,26,'卧室、厨房、客厅与卫浴。生活区通过隔离门与车库、无人机和设备区分开。');bed(g,-5,-6);box(g,0,1.2,-5,.2,2.4,13,palette.wall);table(g,5,-7,7,2);for(let k=0;k<3;k++)box(g,3+k*2.2,1,-11,2,2,1.5,palette.cloth);box(g,-4,.7,5,7,1.4,2.4,palette.cloth);box(g,-4,1.45,4,7,1.3,.4,palette.wood);table(g,-4,8,4,2);box(g,6,1,7,5,2,5,palette.wall);
+  // B1 arrival and exterior route are schematic transport spaces, not extra floors.
+  const access=new T.Group();floors[0].add(access);access.name='arrival-and-drone-route';
+  box(access,-64,-.3,-2,14,.6,30,palette.slab);for(let k=0;k<4;k++){box(access,-64,2.8,-14+k*7,13,5.6,.65,palette.metal);box(access,-64,2.8,-13.6+k*7,10.4,4.6,.1,0x65727a);}tag('车辆分段隔离门',access,[-66,6,-5],0);
+  const droneRoute=new T.Group();droneRoute.name='drone-transfer-route';floors[0].add(droneRoute);
+  box(droneRoute,-31,-.15,-24,76,.3,5,palette.slab);box(droneRoute,4,-.15,-18,5,.3,12,palette.slab);box(droneRoute,-75,-.1,-24,16,.3,16,palette.slab);
+  const routePoints=[[3,.28,-12],[3,.28,-24],[-75,.28,-24]];for(let k=0;k<2;k++)pipe(droneRoute,routePoints[k],routePoints[k+1],.12,palette.yellow);
+  for(let x=-65;x<0;x+=9){const ar=new T.ArrowHelper(new T.Vector3(-1,0,0),new T.Vector3(x,.5,-24),3,palette.yellow,1.1,.65);droneRoute.add(ar);}drone(droneRoute,-75,-24,1.3);tag('专用转运 → 室外起降点',droneRoute,[-42,2.8,-25],0);
+  const b2=[['诊疗与观察',-44,22],['药品与清洁',-24,16],['图书与离线档案',-5,20],['影音与学习',17,22],['健身训练',42,24]];
+  b2.forEach(([name,x,w],j)=>{g=room(floors[1],name,x,-2,w,26,'医疗、学习与休闲层；无人机已迁至 B1。药品与设备需定期检查、轮换和维护。');if(j===0){bed(g,-5,-4);bed(g,4,-4);table(g,0,7,7,2);}if(j===1){shelf(g,-4,-8,5);shelf(g,4,-8,5);table(g,0,5,8,2);}if(j===2){for(let k=0;k<3;k++)shelf(g,-6+k*6,-8,4);table(g,0,5,8,3);seat(g,0,8);}if(j===3){box(g,0,2.8,-10,14,4,.3,palette.dark);box(g,0,2.8,-9.8,12,3,.1,0x4b829a);for(let a=0;a<3;a++)for(let b=0;b<2;b++)seat(g,-5+a*5,b*4);table(g,0,9,9,2);}if(j===4){for(let k=0;k<3;k++){box(g,-7+k*7,.35,-5,3,.5,6,palette.dark);pipe(g,[-7+k*7,.5,-8],[-7+k*7,2,-8],.1,palette.metal);box(g,-7+k*7,2,-8,2,.6,.3,palette.metal);}for(let k=0;k<3;k++){box(g,-6+k*6,.2,6,3,.15,6,0x758e9e);cyl(g,-6+k*6,.6,6,.7,.5,palette.metal);}}});
+  const b3=[['立体叶菜',-42,26],['主粮与果菜',-15,26],['育苗与菌类',10,22],['循环水养殖',37,30]];
+  b3.forEach(([name,x,w],j)=>{g=room(floors[2],name,x,-2,w,26,'种植和养殖的概念分区。产量、营养供给、光照与水电消耗尚未核算。');if(j<3){for(let a=0;a<3;a++)for(let b=0;b<3;b++)crop(g,-w*.32+a*w*.32,-8+b*7,j===2?4:5);}else{for(let a=0;a<2;a++)for(let b=0;b<2;b++){cyl(g,-8+a*15,.95,-6+b*12,5,1.8,palette.blue);cyl(g,-8+a*15,1.89,-6+b*12,4.65,.06,0x56bdc8);}shelf(g,0,10,4);}});
+  const b4=[['干粮与食品',-46,26],['冷藏与冷冻',-20,24],['生活耗材',4,22],['备件与原料',27,22],['维修工坊',49,20]];
+  b4.forEach(([name,x,w],j)=>{g=room(floors[3],name,x,-2,w,26,'分区仓储与维护空间。预留货架通道和盘点区域；储量、保存期限及轮换计划需单独制定。');if(j<4){for(let a=0;a<3;a++)for(let b=0;b<3;b++)shelf(g,-w*.3+a*w*.3,-8+b*7,w*.22);if(j===1){box(g,0,1.6,0,.2,3.2,24,palette.wall);}}else{for(let k=0;k<3;k++){table(g,-5+k*5,-7,4,3);box(g,-5+k*5,2,-7,2,1.4,2,palette.metal);}table(g,0,5,13,3);shelf(g,0,10,12);}});
+  g=room(floors[4],'六罐分区储水',-39,-2,32,26,'原水、净水、中水各两罐，分区管理。罐体容积、补水条件和备用时长尚未核算。');for(let a=0;a<3;a++)for(let b=0;b<2;b++){const x=-10+a*10,z=-6+b*12;cyl(g,x,2.4,z,3.6,4.8,a===2?0x539d96:palette.blue);cyl(g,x,4.85,z,1,.16,palette.metal);pipe(g,[x,3,z],[x,3,11],.15,palette.blue);}for(const x of [-5,5])box(g,x,1.3,0,.2,2.6,25,palette.wall);
+  g=room(floors[4],'双路净水与回收',-13,-2,18,26,'两列净化设备与独立污水处理区，设检修通道。管线仅作功能示意。');for(let a=0;a<2;a++)for(let b=0;b<5;b++){cyl(g,-5+a*9,1.7,-9+b*4,1.4,3.2,0xbac7c9);pipe(g,[-5+a*9,3.2,-9],[-5+a*9,3.2,9],.13,palette.blue);}
+  g=room(floors[4],'固定机组 ×4',7,-2,20,26,'四台固定式备用机组。与燃料、电池隔间分离，功率与排风散热需专门设计。');for(let a=0;a<2;a++)for(let b=0;b<2;b++)generator(g,-5+a*10,-6+b*12,1.25);
+  g=room(floors[4],'便携机组 ×6',25,-2,14,26,'六台便携机组的存放维护区；模型不表示可在无排风条件下室内运行。');for(let a=0;a<2;a++)for(let b=0;b<3;b++)generator(g,-3+a*6,-8+b*8,.65);
+  g=room(floors[4],'燃料／电池／空气',44,-2,22,26,'燃料、电池和空气处理分别设置实体隔间。模型未标定燃料储量、防火等级或续航。');for(const z of [-4,5])box(g,0,2,z,22,4,.2,palette.wall);for(let x=-7;x<=7;x+=7)cyl(g,x,1.3,-9,2.2,2.4,0xb39b77);for(let x=-7;x<=7;x+=3.5)box(g,x,1.5,0,2.5,3,4,palette.dark);for(let x=-6;x<=6;x+=6){box(g,x,1.4,9,4,2.8,4,palette.metal);box(g,x,1.4,11.05,3,2,.1,0x94a2a2);}
+  const mountain=new T.Group();mountain.name='conceptual-rock-cover';model.add(mountain);const rockMat=new T.MeshStandardMaterial({color:0x7e887b,transparent:true,opacity:.23,roughness:1,depthWrite:false});
+  function rockBox(x,y,z,w,h,d){const m=new T.Mesh(boxGeo,rockMat);m.position.set(x,y,z);m.scale.set(w,h,d);mountain.add(m);return m;}
+  const cap=rockBox(0,0,-2,135,13,52);rockBox(0,30,-24,135,70,5);rockBox(-59,28,0,4,65,45);rockBox(66,28,0,4,65,45);
+  const forest=new T.Group();mountain.add(forest);for(let k=0;k<24;k++){const x=-57+(k%8)*16,z=-18+Math.floor(k/8)*17;const trunk=cyl(forest,x,1,z,.3,2,0x715d42);const tree=new T.Mesh(new T.ConeGeometry(2.8,7,6),mat(0x4b745b));tree.position.set(x,5,z);forest.add(tree);}
+  const ground=new T.GridHelper(230,46,0x8799a0,0x8799a0);ground.position.y=-1.3;ground.material.transparent=true;ground.material.opacity=.13;scene.add(ground);
+  const select=$('room-select');for(const r of rooms){const option=document.createElement('option');option.value=r.id;option.textContent='B'+(r.floor+1)+' · '+r.name;select.append(option);}
+  let mode='all',gap=6,selected=null,helper=null,theta=.30,phi=1.12,radius=190,target=new T.Vector3(-4,30,0),dirty=true;
+  function theme(){const dark=matchMedia('(prefers-color-scheme: dark)').matches;scene.background=new T.Color(dark?0x151c22:0xe9efef);dirty=true;}theme();matchMedia('(prefers-color-scheme: dark)').addEventListener('change',theme);
+  function visibleUp(obj){while(obj){if(!obj.visible)return false;obj=obj.parent;}return true;}
+  function layout(){for(let i=0;i<5;i++){floors[i].position.y=(4-i)*(9+gap);floors[i].visible=mode==='all'||Number(mode)===i;}mountain.visible=$('rock').checked&&mode==='all';cap.position.y=4*(9+gap)+13;forest.position.y=cap.position.y+6.5;droneRoute.visible=$('route').checked;ground.visible=mode==='all';if(helper)helper.update();dirty=true;}
+  function setSelection(id){selected=id===''?null:rooms[Number(id)];select.value=selected?selected.id:'';if(helper){scene.remove(helper);helper.geometry.dispose();helper.material.dispose();helper=null;}if(selected){helper=new T.BoxHelper(selected.group,0xe7ac35);scene.add(helper);$('room-detail').textContent='B'+(selected.floor+1)+' · '+selected.name+' — '+selected.description;}else $('room-detail').textContent='拖动旋转 · 滚轮缩放 · 右键拖动平移 · 双指缩放 · 点击房间查看说明';dirty=true;}
+  function setFloor(value){mode=value;root.querySelectorAll('[data-floor]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.floor===mode)));if(selected&&mode!=='all'&&selected.floor!==Number(mode))setSelection('');for(const option of select.options){if(option.value!=='')option.hidden=mode!=='all'&&rooms[Number(option.value)].floor!==Number(mode);}layout();home();}
+  function home(){theta=.30;phi=mode==='all'?1.12:.74;radius=mode==='all'?190:135;target.set(mode==='all'?-4:0,mode==='all'?2*(9+gap):floors[Number(mode)].position.y+1,0);dirty=true;}
+  root.querySelectorAll('[data-floor]').forEach(b=>b.addEventListener('click',()=>setFloor(b.dataset.floor)));
+  $('gap').addEventListener('input',e=>{gap=Number(e.target.value);$('gap-value').value=gap;layout();home();});for(const id of ['rock','route','labels'])$(id).addEventListener('change',layout);
+  $('home').addEventListener('click',home);$('top').addEventListener('click',()=>{theta=0;phi=.025;dirty=true;});select.addEventListener('change',()=>{const id=select.value;if(id!==''&&mode!=='all'&&rooms[Number(id)].floor!==Number(mode))setFloor(String(rooms[Number(id)].floor));setSelection(id);});
+  const pointers=new Map();let moved=0,start={x:0,y:0};
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
+  canvas.addEventListener('pointerdown',e=>{canvas.focus();canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});start={x:e.clientX,y:e.clientY};moved=0;});
+  canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;const previous=pointers.get(e.pointerId),dx=e.clientX-previous.x,dy=e.clientY-previous.y;moved+=Math.abs(dx)+Math.abs(dy);if(pointers.size===2){const other=[...pointers.entries()].find(([id])=>id!==e.pointerId)[1];const before=Math.hypot(previous.x-other.x,previous.y-other.y),after=Math.hypot(e.clientX-other.x,e.clientY-other.y);radius=Math.max(24,Math.min(500,radius*before/Math.max(after,1)));}else if(e.buttons===2||e.shiftKey){const v=new T.Vector3().setFromMatrixColumn(camera.matrix,0).multiplyScalar(-dx*radius/800);target.add(v);target.y+=dy*radius/800;}else{theta-=dx*.006;phi=Math.max(.025,Math.min(Math.PI-.05,phi-dy*.005));}pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});dirty=true;});
+  const raycaster=new T.Raycaster();function pick(e){const rect=canvas.getBoundingClientRect();raycaster.setFromCamera(new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);const hits=raycaster.intersectObjects(floors,true);for(const hit of hits){if(!visibleUp(hit.object))continue;let o=hit.object;while(o&&!o.userData.room)o=o.parent;if(o&&o.userData.room!==undefined){setSelection(o.userData.room);return;}}}
+  canvas.addEventListener('pointerup',e=>{if(moved<6&&e.button===0&&pointers.size===1)pick(e);pointers.delete(e.pointerId);});canvas.addEventListener('pointercancel',e=>pointers.delete(e.pointerId));
+  canvas.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(24,Math.min(500,radius*Math.exp(e.deltaY*.001)));dirty=true;},{passive:false});
+  canvas.addEventListener('keydown',e=>{let used=true;if(e.key==='ArrowLeft')theta-=.1;else if(e.key==='ArrowRight')theta+=.1;else if(e.key==='ArrowUp')phi=Math.max(.025,phi-.08);else if(e.key==='ArrowDown')phi=Math.min(Math.PI-.05,phi+.08);else if(e.key==='+'||e.key==='=')radius=Math.max(24,radius*.9);else if(e.key==='-')radius=Math.min(500,radius*1.1);else used=false;if(used){e.preventDefault();dirty=true;}});
+  function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();dirty=true;}new ResizeObserver(resize).observe(stage);
+  function draw(){requestAnimationFrame(draw);if(!dirty)return;dirty=false;const scale=Math.max(1,1.3/camera.aspect),r=radius*scale;camera.position.set(target.x+r*Math.sin(phi)*Math.sin(theta),target.y+r*Math.cos(phi),target.z+r*Math.sin(phi)*Math.cos(theta));camera.lookAt(target);camera.updateMatrixWorld();model.updateMatrixWorld(true);if(helper)helper.update();renderer.render(scene,camera);
+    const show=$('labels').checked,w=stage.clientWidth,h=stage.clientHeight,occupied=[];for(const t of tags){const isRoom=t.room!==null;let display=show&&visibleUp(t.parent)&&(!isRoom||mode!=='all'||selected?.id===t.room);if(display){const p=t.parent.localToWorld(t.position.clone()).project(camera),x=(p.x*.5+.5)*w,y=(-p.y*.5+.5)*h;display=p.z>-1&&p.z<1&&x>30&&x<w-30&&y>12&&y<h-12;if(display&&isRoom&&selected?.id!==t.room){const span=t.el.textContent.length*6.5+16;if(occupied.some(v=>Math.abs(v.x-x)<(v.span+span)/2&&Math.abs(v.y-y)<25))display=false;else occupied.push({x,y,span});}t.el.style.left=x+'px';t.el.style.top=y+'px';}t.el.style.display=display?'block':'none';}}
+  function download(data,name,type){const blob=new Blob([data],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  $('export-image').addEventListener('click',()=>{renderer.render(scene,camera);const a=document.createElement('a');a.download='bunker-view.png';a.href=canvas.toDataURL('image/png');a.click();});
+  $('export-model').addEventListener('click',()=>{model.updateMatrixWorld(true);const lines=['# Bunker conceptual geometry; uncalibrated units.','mtllib bunker.mtl'],materials=new Map();let offset=0;const v=new T.Vector3();model.traverse(o=>{if(!o.isMesh||!visibleUp(o))return;const pos=o.geometry.getAttribute('position');if(!pos)return;const color=o.material.color?.getHexString()||'aaaaaa',mn='m_'+color;materials.set(mn,color);lines.push('o '+(o.name||'part')+'_'+offset,'usemtl '+mn);for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld);lines.push('v '+v.x.toFixed(3)+' '+v.y.toFixed(3)+' '+v.z.toFixed(3));}const ix=o.geometry.index,count=ix?ix.count:pos.count;for(let i=0;i<count;i+=3)lines.push('f '+[0,1,2].map(k=>offset+(ix?ix.getX(i+k):i+k)+1).join(' '));offset+=pos.count;});const mtl=[...materials].map(([n,c])=>{const cc=new T.Color('#'+c);return 'newmtl '+n+'\nKd '+cc.r+' '+cc.g+' '+cc.b+'\n';}).join('\n');download(lines.join('\n'),'bunker.obj','text/plain');setTimeout(()=>download(mtl,'bunker.mtl','text/plain'),300);$('room-detail').textContent='已导出当前可见楼层的 OBJ 和 MTL。将两个文件放在同一目录；模型单位与尺寸未经标定。';});
+  layout();resize();home();$('model-message').hidden=true;draw();
+  window.bunkerModel={scene,model,rooms,floors,setFloor,setSelection,layout,get state(){return {mode,gap,selected:selected?.id,theta,phi,radius};},counts:{trucks:4,fixedGenerators:4,portableGenerators:6,waterTanks:6}};
+})();
+</script>

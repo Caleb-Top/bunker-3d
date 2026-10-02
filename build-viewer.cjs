@@ -1,0 +1,12 @@
+const fs=require('fs'),path=require('path');
+const root=__dirname, pub=path.join(root,'public');
+const css=fs.readFileSync(path.join(pub,'viewer.css'),'utf8');
+const fragment=fs.readFileSync(path.join(pub,'model-fragment.html'),'utf8');
+const offline=fragment.replace('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js','three.min.js');
+const html='<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>五层堡垒 · 交互三维模型</title><style>'+css+'\nbody{margin:0;padding:16px;background:var(--background);color:var(--foreground);font-family:system-ui,Microsoft YaHei,sans-serif}</style></head><body>'+offline+'</body></html>';
+fs.writeFileSync(path.join(pub,'model.html'),html);
+const offlineDir=path.join(root,'..','bunker-3d-offline');fs.mkdirSync(offlineDir,{recursive:true});
+fs.writeFileSync(path.join(offlineDir,'打开三维堡垒.html'),html);
+fs.copyFileSync(path.join(pub,'three.min.js'),path.join(offlineDir,'three.min.js'));
+fs.writeFileSync(path.join(offlineDir,'使用说明.txt'),'双击“打开三维堡垒.html”，使用支持 WebGL 的现代浏览器，无需联网。\n鼠标左键拖动旋转，滚轮缩放，右键拖动平移。触屏单指旋转、双指缩放。方向键旋转，加减键缩放。\n选择整体或 B1–B5；楼层展开用于查看内部；点击房间或用下拉框选择房间。\nB1 无人机间位于重卡库与总控室之间，黄色路线通往室外起降点。\n保存当前视角导出无文字标注的模型截图。导出 OBJ 保存当前可见部分，同时下载 MTL；若浏览器限制连续下载，请允许多文件下载。两个文件应放在同一目录。\n随包提供默认整体展开状态的 bunker.obj 和 bunker.mtl，可导入 Blender 等建模软件。\n模型为简化几何空间概念，不是精确复刻效果图。比例和容量未经核算，不可直接用于施工。\n');
+console.log('Standalone and offline viewer built.');

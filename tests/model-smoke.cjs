@@ -1,0 +1,25 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),path=require('path');
+const events=new Map(),elements=new Map(),downloads=[],blobs=new Map();
+function element(id=''){const el={id,style:{},dataset:{},value:'',checked:false,hidden:false,clientWidth:1440,clientHeight:650,children:[],options:[],textContent:'',addEventListener(type,fn){events.set(id+':'+type,fn)},append(child){this.children.push(child);if(id==='room-select')this.options.push(child)},setAttribute(k,v){this[k]=v},focus(){},setPointerCapture(){},getBoundingClientRect(){return {left:0,top:0,width:1440,height:650}},click(){if(this.download)downloads.push({name:this.download,blob:blobs.get(this.href)})},toDataURL(){return 'data:image/png;base64,'}};return el;}
+for(const id of ['bunker-viewer','model-canvas','model-stage','model-labels','model-message','room-select','room-detail','gap','gap-value','rock','labels','route','home','top','export-model','export-image'])elements.set(id,element(id));
+elements.get('labels').checked=true;elements.get('route').checked=true;elements.get('gap').value='6';
+const buttons=['all','0','1','2','3','4'].map(f=>{const el=element('floor-'+f);el.dataset.floor=f;return el});
+const root=elements.get('bunker-viewer');root.querySelector=s=>elements.get(s.slice(1));root.querySelectorAll=()=>buttons;
+const ctx={console,Blob,devicePixelRatio:1,setTimeout:fn=>fn(),requestAnimationFrame(){},matchMedia:()=>({matches:false,addEventListener(){}}),ResizeObserver:class{constructor(fn){this.fn=fn}observe(){this.fn()}},URL:{createObjectURL(blob){const key='blob:'+blobs.size;blobs.set(key,blob);return key},revokeObjectURL(){}},document:{getElementById:id=>elements.get(id),createElement:()=>element()}};ctx.window=ctx;vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/three.min.js'),'utf8'),ctx);
+ctx.THREE.WebGLRenderer=class{setPixelRatio(){}setSize(){}render(){}};
+const html=fs.readFileSync(path.join(__dirname,'../public/model-fragment.html'),'utf8');
+const code=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+vm.runInContext(code,ctx,{timeout:15000});
+const model=ctx.bunkerModel;assert(model,'model initialized');assert.equal(model.floors.length,5);assert(model.rooms.length>=20);
+const counts={trucks:0,generators:0};model.model.traverse(o=>{if(o.name==='heavy-truck')counts.trucks++;if(o.name==='generator')counts.generators++});assert.equal(counts.trucks,4);assert.equal(counts.generators,10);
+model.setFloor('0');assert.deepEqual(Array.from(model.floors,f=>f.visible),[true,false,false,false,false]);
+const drone=model.rooms.find(r=>r.name==='独立无人机间'),garage=model.rooms.find(r=>r.name==='四车位重卡库'),control=model.rooms.find(r=>r.name==='总监控室');assert.equal(drone.floor,0);assert(garage.x<drone.x&&drone.x<control.x);
+model.setSelection(drone.id);assert(elements.get('room-detail').textContent.includes('室外起降点'));
+elements.get('gap').value='12';events.get('gap:input')({target:elements.get('gap')});assert.equal(model.state.gap,12);assert.equal(model.floors[0].position.y,84);
+events.get('model-canvas:keydown')({key:'ArrowRight',preventDefault(){}});assert(model.state.theta>.3);
+events.get('model-canvas:wheel')({deltaY:-100,preventDefault(){}});assert(model.state.radius<135);
+elements.get('route').checked=false;events.get('route:change')();assert.equal(model.model.getObjectByName('drone-transfer-route').visible,false);
+elements.get('route').checked=true;elements.get('gap').value='0';events.get('gap:input')({target:elements.get('gap')});model.setFloor('all');model.setSelection('');
+events.get('export-model:click')();assert.equal(downloads.length,2);assert(downloads[0].name==='bunker.obj');
+(async()=>{const out=path.join(__dirname,'../../bunker-3d-offline');for(const download of downloads){const text=await download.blob.text();assert(text.length>500);fs.writeFileSync(path.join(out,download.name),text);}console.log(JSON.stringify({status:'pass',floors:5,rooms:model.rooms.length,...counts,checked:['initialization','B1 drone adjacency','single floor visibility','room selection','floor spread','keyboard orbit','wheel zoom','route visibility','OBJ+MTL export'],limitation:'CPU scene and interaction checks; no browser GPU render tested.'},null,2));})().catch(e=>{console.error(e);process.exitCode=1});
