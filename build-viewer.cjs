@@ -14,3 +14,5 @@ fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n本次改造：B1 
 fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n连接修正：折线车道从车库左侧独立车辆门进入，整体和B1均显示车道；无人机室的公共通道、专用转运通道出口及转运通道进入货运升降机处设置隔离门。点击隔离门可开合，室内漫游靠近时自动开启，离开后关闭。\n');
 fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n游戏交互：WASD移动；驾驶时W/S油门或倒车、A/D转向，空格刹车，F下车。先选择车辆再驾驶；后排越野车从车库左侧调度带绕出。E手动开常闭门或拿起近处物品，Q放下；游戏枪械左键射击，R换弹，B2训练区有靶标。可以点击锁定鼠标，也可拖动转头。\n电梯需走进轿厢后使用上一层/下一层；货运升降机同样在轿厢内操作，往返B1与地面。B1-B5两处楼梯可连续行走，卧室直接接入短应急连接。起降井植被盖板可开合。车辆改装选择防护外观、越野轮胎、补给架、辅助灯并应用，保存到当前浏览器。\n驾驶、枪械与射击均为虚构的轻量游戏模拟，非真实车辆或防弹工程性能。\n');
 console.log('Standalone and offline viewer built.');
+
+fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n建模深化：原创部件化低多边形模型，参考TaCZ枪械、Create工业设备与Immersive Vehicles车辆建模工作流。八类游戏枪械共16件，各有独立外形、弹匣容量和射击节奏。B4四类仓储的108架全部改为四层、每层五个包装位，共2160个可见包装位。\n弹药分装在B1无人机间、B4维修间的独立储存隔间，共48个可领取箱，分P手枪/冲锋枪弹、R步枪弹、S霰弹、D精确步枪弹、M支援枪弹。选箱后靠近按E或领取按钮；箱库存会减少，换弹消耗对应随身弹药。枪内弹药、箱存量和随身储备保存在本浏览器。包装位和虚拟弹药库存不表示真实保障年限。\n参考：https://tacwiki.mcma.club/gunpack/first_gun/\nhttps://github.com/Creators-of-Create/Create\nhttps://github.com/DonBruce64/MinecraftTransportSimulator/wiki/Pack-Making-Models-Model-Requirements\n本站模型为原创程序几何，未直接导入上述模组的模型或贴图。\n');
