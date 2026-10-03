@@ -26,6 +26,11 @@ elements.get('route').checked=true;elements.get('gap').value='0';events.get('gap
 assert(model.items.length>100,'individual item catalog');
 assert.equal(model.counts.warehousePackages,2160);
 assert.equal(model.game.gunTypes.length,8);
+for(const vehicle of model.items.filter(i=>['truck','offroad'].includes(i.type))){assert(vehicle.group.userData.hollowCabin,'vehicle has a hollow cab');assert.equal(vehicle.group.userData.interiorSeats,vehicle.type==='truck'?2:4);assert(vehicle.group.getObjectByName('complete-cabin-interior'),'cabin contains seats and dashboard');}
+for(const weapon of model.items.filter(i=>i.type==='firearm'))assert.equal(weapon.group.userData.modelRevision,'profiled-exterior-v2');
+assert.equal((html.match(/data:image\/jpeg;base64,/g)||[]).length,9,'all nine PBR maps embedded for offline mode');
+for(const room of model.rooms)assert.equal(room.pad.material.userData.surfaceSource,'https://polyhaven.com/a/concrete_floor_worn_001');
+
 assert.equal(new Set(model.items.filter(i=>i.type==='firearm').map(i=>i.group.userData.gunKey)).size,8);
 assert.equal(model.game.ammoCrates.length,48);
 for(const pool of ['P','R','S','D','M'])assert(model.game.ammoCrates.some(g=>g.userData.ammoPool===pool));
