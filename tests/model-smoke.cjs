@@ -51,7 +51,7 @@ const access=model.model.getObjectByName('arrival-and-drone-route');model.setFlo
 const segments=[];access.traverse(o=>{if(o.name==='vehicle-road-segment')segments.push(o)});
 assert.equal(segments.length,4);
 for(const segment of segments){const b=new ctx.THREE.Box3().setFromObject(segment);assert(b.max.x<=garage.x-garage.w/2+.001,'road stays outside garage footprint');}
-assert(model.model.getObjectByName('garage-side-vehicle-door'));
+assert.equal(model.model.getObjectByName('garage-side-vehicle-door').scale.y,1.8,'truck doorway has vehicle clearance');for(const o of model.floors[0].children){if(!o.isMesh)continue;const b=new ctx.THREE.Box3().setFromObject(o);const base=model.floors[0].position.y;if(b.max.y-base>.42&&b.min.y-base<2.5)assert(!(b.min.x<3.77&&b.max.x>3.23&&b.min.z<-18.43&&b.max.z>-18.97),'floor boundary wall preserves drone passage');}
 for(const name of ['drone-public-isolation-door','drone-transfer-isolation-door','transfer-lift-isolation-door']){const frame=model.model.getObjectByName(name);assert(frame?.userData.isolation,name);model.toggleIsolationDoor(name);model.animateDoors(.2);assert.equal(model.doors.find(d=>d.frame===frame).open,1);model.toggleIsolationDoor(name);model.animateDoors(.2);assert.equal(model.doors.find(d=>d.frame===frame).open,0);}
 model.setFloor('all');model.rebuildColliders();assert(model.canWalk(3.5,-16,0),'drone transfer threshold');assert(model.canWalk(3.5,-39,0),'transfer corridor turn');assert(model.canWalk(-63,-40,0),'lift isolation threshold');assert(!model.canWalk(-63,-38,0),'lift partition solid beside door');assert(model.canWalk(-68,-40,0),'cargo lift entrance');
 const truckItem=model.items.find(i=>i.type==='truck'),otherTruck=model.items.filter(i=>i.type==='truck')[1];
