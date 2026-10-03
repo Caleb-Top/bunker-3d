@@ -15,7 +15,7 @@ vm.runInContext(code,ctx,{timeout:15000});
 const model=ctx.bunkerModel;assert(model,'model initialized');assert.equal(model.floors.length,5);assert(model.rooms.length>=20);
 const counts={trucks:0,generators:0,firearmAlcoves:0,storedSilhouettes:0,vehicleGates:0};model.model.traverse(o=>{if(o.name==='heavy-truck')counts.trucks++;if(o.name==='generator')counts.generators++;if(o.name==='firearm-storage-alcove'){counts.firearmAlcoves++;assert(['独立无人机间','维修工坊'].includes(model.rooms[Number(o.parent.userData.room)].name));}if(o.name==='stored-firearm-silhouette')counts.storedSilhouettes++;if(o.name==='vehicle-isolation-gate')counts.vehicleGates++;});assert.equal(counts.trucks,4);assert.equal(counts.generators,10);assert.equal(counts.firearmAlcoves,2);assert.equal(counts.storedSilhouettes,8);assert.equal(counts.vehicleGates,4);assert.equal(model.state.coverDepth,32);assert.equal(model.model.getObjectByName('thick-rock-cap').scale.y,32);assert(model.model.getObjectByName('drone-surface-lift'));
 model.setFloor('0');assert.deepEqual(Array.from(model.floors,f=>f.visible),[true,false,false,false,false]);
-const drone=model.rooms.find(r=>r.name==='独立无人机间'),garage=model.rooms.find(r=>r.name==='四车位重卡库'),control=model.rooms.find(r=>r.name==='总监控室');assert.equal(drone.floor,0);assert(garage.x<drone.x&&drone.x<control.x);
+const drone=model.rooms.find(r=>r.name==='独立无人机间'),garage=model.rooms.find(r=>r.name==='九车位车辆库'),control=model.rooms.find(r=>r.name==='总监控室');assert.equal(drone.floor,0);assert(garage.x<drone.x&&drone.x<control.x);
 model.setSelection(drone.id);assert(elements.get('room-detail').textContent.includes('室外起降点'));
 events.get('focus-room:click')();assert.equal(model.state.mode,'0');assert(model.state.radius<50);
 elements.get('gap').value='12';events.get('gap:input')({target:elements.get('gap')});assert.equal(model.state.gap,12);assert.equal(model.floors[0].position.y,84);
@@ -26,14 +26,27 @@ elements.get('route').checked=true;elements.get('gap').value='0';events.get('gap
 assert(model.items.length>100,'individual item catalog');
 assert(model.model.getObjectByName('garage-drone-blast-partition'),'solid separation between garage and drone room');
 model.setSelection(drone.id);model.enterWalk();assert(model.state.walking);assert.equal(model.state.gap,0);assert.equal(model.state.walkFloor,0);assert.equal(elements.get('gap').disabled,true);
-const before=model.state.walkPosition.z;model.moveWalk(0,-1);assert(model.state.walkPosition.z<before,'walks forward');model.moveWalk(200,0);assert(model.state.walkPosition.x<62,'cannot leave floor edge');model.moveWalk(0,100);assert(model.state.walkPosition.z<18.5,'cannot walk through perimeter');
+const before=model.state.walkPosition.z;model.moveWalk(0,-1);assert(model.state.walkPosition.z<before,'walks forward');model.moveWalk(200,0);assert(model.state.walkPosition.x<62,'cannot leave floor edge');model.moveWalk(0,100);assert(model.state.walkPosition.z<27,'cannot walk through perimeter');
 model.changeWalkFloor(4);assert.equal(model.state.walkFloor,4);assert.equal(model.state.walkPosition.y,1.75);
 assert(!model.canWalk(-49,-8,4),'tank blocks player');
 model.exitWalk();assert(!model.state.walking);assert.equal(elements.get('gap').disabled,false);
 model.setFloor('all');model.rebuildColliders();
-for(const room of model.rooms){assert(model.canWalk(room.x,13.5,room.floor),room.name+' hallway access');assert(model.canWalk(room.x,11,room.floor),room.name+' front doorway');}
-assert(model.canWalk(-7.5,-2,0),'garage-drone partition portal connects');assert(!model.canWalk(-7.5,-8,0),'partition blocks elsewhere');
+for(const room of model.rooms){if(room.name==='单人生活区')continue;assert(model.canWalk(room.x,13.5,room.floor),room.name+' hallway access');assert(model.canWalk(room.x,11,room.floor),room.name+' front doorway');}
+assert(model.canWalk(-7,-2,0),'garage-drone partition portal connects');assert(!model.canWalk(-7,-8,0),'partition blocks elsewhere');
 events.get('blast-door:click')();model.animateDoors(.2);assert.equal(model.doors.find(d=>d.blast).open,1);events.get('blast-door:click')();model.animateDoors(.2);assert.equal(model.doors.find(d=>d.blast).open,0);
+const living=model.rooms.find(r=>r.name==='单人生活区');
+assert.equal(control.x+control.w/2,living.x-living.w/2,'shared wall without corridor gap');
+assert(model.model.getObjectByName('control-living-single-blast-door'));
+for(const x of [32.4,33,33.6])assert(model.canWalk(x,3,0),'walk through direct control-living doorway');
+assert(!model.canWalk(33,-4,0),'shared wall blocks except doorway');
+assert.equal(model.items.filter(i=>i.group.name==='light-offroad').length,2);
+assert.equal(model.items.filter(i=>i.group.name==='heavy-offroad').length,3);
+const warehouses=model.rooms.filter(r=>r.floor===3&&r.name!=='维修工坊');
+assert.equal(warehouses.reduce((n,r)=>n+model.items.filter(i=>i.roomId===r.id&&i.type==='shelf').length,0),108);
+assert(warehouses.every(r=>r.d===62),'storage footprint expanded');
+assert(model.canWalk(-46,-53,3),'expanded rear service gallery reachable');
+assert(model.canWalk(-30.5,-35,0),'expanded garage gallery reachable');
+const suv=model.items.find(i=>i.type==='offroad');model.replaceItem(suv,1,'olive');assert(suv.extra);model.replaceItem(suv,0,'original');assert.equal(suv.extra,null);
 const truckItem=model.items.find(i=>i.type==='truck'),otherTruck=model.items.filter(i=>i.type==='truck')[1];
 const otherMaterial=otherTruck.group.children.find(o=>o.isMesh).material;
 model.selectItem(truckItem.id);model.replaceItem(truckItem,1,'slate');assert.equal(truckItem.cargo.visible,false);assert.equal(truckItem.variant,1);assert.equal(otherTruck.group.children.find(o=>o.isMesh).material,otherMaterial,'replacement isolated to one item');assert(storage.get('bunker-item-edits-v1').includes('slate'));
@@ -41,4 +54,4 @@ model.replaceItem(truckItem,0,'original');assert(truckItem.cargo.visible);assert
 const tankItem=model.items.find(i=>i.type==='tank'),tankOriginal=tankItem.group.geometry;model.replaceItem(tankItem,1,'original');assert.notEqual(tankItem.group.geometry,tankOriginal);model.replaceItem(tankItem,0,'original');assert.equal(tankItem.group.geometry,tankOriginal);
 model.selectItem('');model.setSelection('');model.setFloor('all');
 events.get('export-model:click')();assert.equal(downloads.length,2);assert(downloads[0].name==='bunker.obj');
-(async()=>{const out=path.join(__dirname,'../../bunker-3d-offline');for(const download of downloads){const text=await download.blob.text();assert(text.length>500);assert(!text.includes('NaN'));if(download.name.endsWith('.mtl'))assert(text.includes('d 0.16'));fs.writeFileSync(path.join(out,download.name),text);}console.log(JSON.stringify({status:'pass',floors:5,rooms:model.rooms.length,inspectableItems:model.items.length,...counts,checked:['initialization','B1 drone adjacency','two storage alcoves','deeper rock cap','surface cargo lift','four vehicle gates','room focus','single floor visibility','room selection','floor spread','keyboard orbit','wheel zoom','route visibility','OBJ+MTL export with transparency','first-person movement and floor change','wall and equipment collision','all front doorways accessible','blast partition and door animation','individual item replacement and reset','device-local item persistence'],limitation:'CPU scene and interaction checks; no browser GPU render tested.'},null,2));})().catch(e=>{console.error(e);process.exitCode=1});
+(async()=>{const out=path.join(__dirname,'../../bunker-3d-offline');for(const download of downloads){const text=await download.blob.text();assert(text.length>500);assert(!text.includes('NaN'));if(download.name.endsWith('.mtl'))assert(text.includes('d 0.16'));fs.writeFileSync(path.join(out,download.name),text);}console.log(JSON.stringify({status:'pass',floors:5,rooms:model.rooms.length,inspectableItems:model.items.length,...counts,lightOffroads:2,heavyOffroads:3,warehouseShelves:108,checked:['initialization','B1 drone adjacency','two storage alcoves','deeper rock cap','surface cargo lift','four vehicle gates','room focus','single floor visibility','room selection','floor spread','keyboard orbit','wheel zoom','route visibility','OBJ+MTL export with transparency','first-person movement and floor change','wall and equipment collision','all front doorways accessible','blast partition and door animation','individual item replacement and reset','device-local item persistence'],limitation:'This script mocks the DOM and renderer; actual WebGL render is checked separately in headless Chrome.'},null,2));})().catch(e=>{console.error(e);process.exitCode=1});
