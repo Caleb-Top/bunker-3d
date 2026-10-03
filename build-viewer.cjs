@@ -16,3 +16,5 @@ fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n游戏交互：WAS
 console.log('Standalone and offline viewer built.');
 
 fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n建模深化：原创部件化低多边形模型，参考TaCZ枪械、Create工业设备与Immersive Vehicles车辆建模工作流。八类游戏枪械共16件，各有独立外形、弹匣容量和射击节奏。B4四类仓储的108架全部改为四层、每层五个包装位，共2160个可见包装位。\n弹药分装在B1无人机间、B4维修间的独立储存隔间，共48个可领取箱，分P手枪/冲锋枪弹、R步枪弹、S霰弹、D精确步枪弹、M支援枪弹。选箱后靠近按E或领取按钮；箱库存会减少，换弹消耗对应随身弹药。枪内弹药、箱存量和随身储备保存在本浏览器。包装位和虚拟弹药库存不表示真实保障年限。\n参考：https://tacwiki.mcma.club/gunpack/first_gun/\nhttps://github.com/Creators-of-Create/Create\nhttps://github.com/DonBruce64/MinecraftTransportSimulator/wiki/Pack-Making-Models-Model-Requirements\n本站模型为原创程序几何，未直接导入上述模组的模型或贴图。\n');
+
+fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n近看细节：选择物品后点击“细节查看 / 返回空间”，进入单件物品的独立旋转视图，滚轮可近距离查看；再次点击或选择楼层返回空间。弹药箱可用“开合弹药箱盖”查看铰链、密封圈、内衬和分装托盘，空箱不显示弹药。车辆增加轮毂螺栓、镜面后视镜、雨刷与牵引环；设备增加表盘、刻度和旋钮；生活区补充键盘、纸笔、杯内液面、被褥缝线、厨具。枪械外部细节和第一人称支撑手、换弹时弹匣动作均为游戏展示。\n');
