@@ -30,3 +30,5 @@ fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n海岛精细化：
 fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n堡垒周界和内港更新：原离散低墙替换为沿地形连续连接的混凝土厚墙、墙顶检修平台、实心女儿墙、外侧扶壁、钢覆面板和车辆门楼。C1000是用户指定的虚构材料等级，未定义真实材料配方、强度或防护性能；现实UHPC参考：https://www.fhwa.dot.gov/publications/research/infrastructure/structures/11038/ 。\n新增岛内封闭潜艇港：海上入口、两段可开合闸门、海水港池、两侧检修码头、护舷、系船柱、吊装架、岸电设备与民用潜航器外形。查看潜艇内港按钮隐藏岛面与顶盖，可旋转近看；闸门按钮展示开合，返回海岛总览恢复。内港与地下五层占地分开，全部尺度为未核算游戏概念，无潜艇驾驶或真实水动力模拟。\n');
 
 fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n内港隐蔽修正：移除伸向海上的长廊与外露入口建筑，港池缩进岛体内部；接近段从水下岩壁口进入，双闸门均收回岛内。恢复原海岸网格，海岛总览不显示地下港体、顶盖和闸门。查看潜艇内港时揭开岛面与顶盖，返回总览恢复覆盖；无突出岛外的港口建筑。仅为空间展示，未模拟水下航行与真实工程性能。\n');
+
+fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n整体海岛堡垒：原六处独立功能建筑收进同一连续基座、外墙和顶板，采用四角高起塔体、封闭屋顶和钢构入口的整体造型。参考柏林Humboldthain高射炮塔的建筑体量：https://www.berliner-unterwelten.de/en/the-association/projects/humboldthain-flak-tower.html ，未复刻历史结构或武器配置。光伏移至堡垒外北侧，三座风力发电外观模型位于岛面。查看堡垒内部按钮揭开统一外壳显示生活总控、九车位、无人机、水务、种植和地下入口；潜艇内港保持隐蔽。内嵌机枪防卫点仅是虚构游戏外观，可切换盖板与外观展示，不含目标识别、自动瞄准或开火功能。\n');
