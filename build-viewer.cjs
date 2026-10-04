@@ -28,3 +28,5 @@ fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n海岛备用堡垒
 fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n海岛精细化：重新划定互不重叠的建筑台地，环路绕开车库、温室与光伏；不规则岩岸和坡地采用实拍草岩、海岸岩石PBR材质。建筑增加分格窗、实墙、坡屋顶、咬合肋、雨水槽、落水管、入口雨棚和台阶。港池采用坡面防波堤、护面石、系船柱和护舷；观察塔增加梯子护栏，植物采用批量曲面树冠。双击建筑可聚焦，地下剖面隐藏全部地表对象。\n新增CC0贴图：https://polyhaven.com/a/aerial_grass_rock\nhttps://polyhaven.com/a/coast_sand_rocks_02\n港口照片参考：https://showcase.city.fukuoka.lg.jp/photo/img1066\nhttps://www.havneguide.dk/en/havn/hirsholm-havn\n仅以真实港口和材质为参考，仍是虚构场景，未复刻真实地理地点。\n');
 
 fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n堡垒周界和内港更新：原离散低墙替换为沿地形连续连接的混凝土厚墙、墙顶检修平台、实心女儿墙、外侧扶壁、钢覆面板和车辆门楼。C1000是用户指定的虚构材料等级，未定义真实材料配方、强度或防护性能；现实UHPC参考：https://www.fhwa.dot.gov/publications/research/infrastructure/structures/11038/ 。\n新增岛内封闭潜艇港：海上入口、两段可开合闸门、海水港池、两侧检修码头、护舷、系船柱、吊装架、岸电设备与民用潜航器外形。查看潜艇内港按钮隐藏岛面与顶盖，可旋转近看；闸门按钮展示开合，返回海岛总览恢复。内港与地下五层占地分开，全部尺度为未核算游戏概念，无潜艇驾驶或真实水动力模拟。\n');
+
+fs.appendFileSync(path.join(offlineDir,'使用说明.txt'),'\n内港隐蔽修正：移除伸向海上的长廊与外露入口建筑，港池缩进岛体内部；接近段从水下岩壁口进入，双闸门均收回岛内。恢复原海岸网格，海岛总览不显示地下港体、顶盖和闸门。查看潜艇内港时揭开岛面与顶盖，返回总览恢复覆盖；无突出岛外的港口建筑。仅为空间展示，未模拟水下航行与真实工程性能。\n');
