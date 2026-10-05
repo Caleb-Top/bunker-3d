@@ -14,11 +14,11 @@ const code=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
 for(const match of code.matchAll(/\$\('([^']+)'\)/g))assert(html.includes('id="'+match[1]+'"'),'DOM control exists: '+match[1]);
 vm.runInContext(code,ctx,{timeout:30000});
 const model=ctx.bunkerModel;assert(model,'model initialized');
-assert.equal(model.camouflageLeaves.length,2,'two camouflage surfaces ride on the original animated door leaves');for(let i=0;i<2;i++)assert.equal(model.camouflageLeaves[i].parent,model.mountainMainDoor.leaves[i].group,'camouflage is attached to moving leaves');assert(model.mountainCamouflage.getObjectByName('earth-covered-entry-roof'),'continuous earth roof covers exposed portal');
+assert.equal(model.camouflageLeaves.length,2,'two camouflage surfaces ride on the original animated door leaves');for(let i=0;i<2;i++)assert.equal(model.camouflageLeaves[i].parent,model.mountainMainDoor.leaves[i].group,'camouflage is attached to moving leaves');assert(model.mountainCamouflage.userData.continuousSurface,'closed door and fixed cliff share continuous geometry');
 
 assert(model.mountainTerrain.geometry.attributes.position.count>20000,'mountain ground is a subdivided continuous terrain');
 assert(model.mountainTreePositions.length>35,'natural forest has individual clearanced trees');
-assert.equal(model.mountainMainDoor.frame.scale.y,1,'main door rebuilt without stretched parent');
+for(const v of [-2,-8,-16,-24,-32]){const a=Math.atan2(-20,-34),x=-90+v*Math.sin(a),z=-110+v*Math.cos(a);assert(model.mountainSurfaceHeight(x,z)>=model.state.surfaceRise+9,'mountain behind the entrance is filled, without a portal trench');}assert.equal(model.mountainMainDoor.frame.scale.y,1,'main door rebuilt without stretched parent');
 assert(model.mountainPortal.parent.userData.integralPortal,'portal uses same original road gate parent');
 const portalParent=model.mountainPortal.parent;
 assert(Math.abs(portalParent.rotation.y-Math.atan2(-20,-34))<.001,'main door aligns with final folded road segment');

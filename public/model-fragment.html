@@ -867,23 +867,28 @@
   const mountainSurface=new T.Group();mountainSurface.name='realistic-mountain-surface';floors[0].add(mountainSurface);
   const portalAngle=Math.atan2(-20,-34),portalSin=Math.sin(portalAngle),portalCos=Math.cos(portalAngle);
   function portalXZ(x,z){const dx=x+90,dz=z+110;return {u:dx*portalCos-dz*portalSin,v:dx*portalSin+dz*portalCos};}
+  function entranceFaceHeight(u){const t=Math.max(0,Math.min(1,(Math.abs(u)-29)/22)),blend=1-t*t*(3-2*t);return (10*Math.exp(-((u/45)**2))+.65*Math.sin(u*.31)+.28*Math.sin(u*.91))*blend;}
+  function entranceFaceZ(u,y){return 1.8-.1*y+.75*Math.sin(u*.13+y*.12)+.16*Math.cos(u*.4+y*.26);}
   function mountainSurfaceHeight(x,z){
     const p=portalXZ(x,z),smooth=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
     const ridge=24*Math.exp(-((x+1)**2/6400+(z+28)**2/3300))+9*Math.exp(-((x-42)**2/1100+(z-2)**2/1600));
     let h=surfaceRise+ridge+1.25*Math.sin(x*.075)*Math.cos(z*.055)+.38*Math.sin(x*.29+z*.17);
-    const rectDistance=Math.max(-121-x,x+52,-140-z,z+17,0),flatBlend=1-smooth(rectDistance/22);h=surfaceRise+(h-surfaceRise)*(1-flatBlend);
+    // Approach clearance only extends in front of the portal; it no longer cuts a valley behind it.
+    const rectDistance=Math.max(-121-x,x+52,-140-z,z+17,0),flatBlend=(1-smooth(rectDistance/22))*smooth((p.v-.8)/2);h=surfaceRise+(h-surfaceRise)*(1-flatBlend);
     const exitDistance=Math.max(Math.abs(x-66)-9,Math.abs(z-12)-9,0),exitBlend=1-smooth(exitDistance/16);h=surfaceRise+(h-surfaceRise)*(1-exitBlend);
     const hatchDistance=Math.max(Math.abs(x+70)-12,Math.abs(z+40)-12,0),hatchBlend=1-smooth(hatchDistance/10);h=surfaceRise+(h-surfaceRise)*(1-hatchBlend);
-    const back=smooth((-p.v-2)/19),flank=smooth((Math.abs(p.u)-5)/12),portalH=surfaceRise+Math.max(back*14,flank*8*(1-smooth(Math.max(0,p.v)/15)));
-    const portalBlend=(1-smooth((Math.abs(p.u)-20)/20))*(1-smooth((-p.v-25)/20))*(1-smooth((p.v-2)/16));h=h*(1-portalBlend)+portalH*portalBlend;
-    if(p.v>=0&&Math.abs(p.u)<9&&p.v<32)h=surfaceRise;
+    const shoulderBlend=1-smooth((Math.abs(p.u)-29)/22),faceHeight=entranceFaceHeight(p.u),behind=faceHeight+15*smooth((-p.v-3)/92);
+    if(p.v<.8){const support=surfaceRise+behind*shoulderBlend;h=Math.max(h,support);}
+    else if(p.v<1.85){h=surfaceRise+faceHeight*(1-smooth((p.v-.8)/1.05))*shoulderBlend;}
+    if(p.v>=1.85&&Math.abs(p.u)<9&&p.v<32)h=surfaceRise;
+    if(Math.abs(x+70)<12&&Math.abs(z+40)<12)h=surfaceRise;if(Math.abs(x-66)<9&&Math.abs(z-12)<9)h=surfaceRise;
     return h;
   }
   const mountainTerrainGeo=new T.PlaneGeometry(252,222,168,148);mountainTerrainGeo.rotateX(-Math.PI/2);mountainTerrainGeo.translate(-27,0,-57);
   const mountainPos=mountainTerrainGeo.attributes.position,mountainUV=mountainTerrainGeo.attributes.uv,mountainColor=[],mountainGrassIndices=[],mountainRockIndices=[];
   for(let i=0;i<mountainPos.count;i++){const x=mountainPos.getX(i),z=mountainPos.getZ(i),h=mountainSurfaceHeight(x,z);mountainPos.setY(i,h);mountainUV.setXY(i,x/9,z/9);const shade=.8+.13*Math.sin(x*.061+z*.11)+.07*Math.cos(z*.24);mountainColor.push(shade,shade,shade);}
   for(let i=0;i<mountainTerrainGeo.index.count;i+=3){const ids=[0,1,2].map(j=>mountainTerrainGeo.index.getX(i+j));const x=ids.reduce((s,j)=>s+mountainPos.getX(j),0)/3,z=ids.reduce((s,j)=>s+mountainPos.getZ(j),0)/3,p=portalXZ(x,z);
-    if((Math.abs(p.u)<5.55&&p.v>-21&&p.v<3)||(Math.abs(x+70)<3.8&&Math.abs(z+40)<3.8)||(x>63.5&&x<68.5&&z>6&&z<9.75))continue;
+    if((Math.abs(p.u)<50&&p.v>-.4&&p.v<3.5)||(Math.abs(x+70)<3.8&&Math.abs(z+40)<3.8)||(x>63.5&&x<68.5&&z>6&&z<9.75))continue;
     const rock=(Math.abs(p.u)<30&&p.v<1&&p.v>-30)||Math.sin(x*.13+z*.04)>.77;
     (rock?mountainRockIndices:mountainGrassIndices).push(...ids);
   }
@@ -980,6 +985,39 @@
   }
   for(let k=0;k<32;k++){const u=-9+(k%8)*2.5,v=-7+Math.floor(k/8)*2.5,y=9.1+.4*Math.sin(u*.24+v*.12);const plant=new T.Mesh(needleGeo,camouflagePlantMaterial);plant.position.set(u,y,v);plant.scale.set(.8,.65,1.05);plant.rotation.set(.35,k*1.37,.18);camouflageFoliage.add(plant);}
   mountainCamouflage.userData.apertureWidth=9;mountainCamouflage.userData.animatedLeafCount=camouflageLeaves.length;
+
+
+  // One continuous cliff surface supplies the fixed mountain face and both moving camouflage panels.
+  mountainCamouflage.clear();for(const leaf of camouflageLeaves)leaf.clear();
+  const seamlessMaterial=mountainEarth.clone();seamlessMaterial.vertexColors=false;
+  seamlessMaterial.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec3 vCliffWorld; varying vec3 vCliffNormal;\n'+shader.vertexShader;
+    shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\n vCliffWorld=(modelMatrix*vec4(transformed,1.0)).xyz; vCliffNormal=normalize(mat3(modelMatrix)*objectNormal);');
+    shader.fragmentShader='varying vec3 vCliffWorld; varying vec3 vCliffNormal;\n'+shader.fragmentShader;
+    shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',
+      '#ifdef USE_MAP\n vec3 weights=pow(abs(normalize(vCliffNormal)),vec3(4.0)); weights/=max(dot(weights,vec3(1.0)),0.0001); vec4 cliffColor=texture2D(map,vCliffWorld.yz/9.0)*weights.x+texture2D(map,vCliffWorld.xz/9.0)*weights.y+texture2D(map,vCliffWorld.xy/9.0)*weights.z; diffuseColor*=cliffColor;\n#endif');
+  };
+  seamlessMaterial.customProgramCacheKey=()=> 'continuous-mountain-cliff-v1';
+  mountainTerrain.material=[seamlessMaterial,seamlessMaterial];forecourt.material=seamlessMaterial;
+  function continuousCliffPatch(parent,minU,maxU,minY=0,doorLeaf=false){const cols=Math.max(18,Math.ceil((maxU-minU)*4)),rows=36,positions=[],uv=[],indices=[];
+    for(let iy=0;iy<=rows;iy++)for(let ix=0;ix<=cols;ix++){const u=minU+(maxU-minU)*ix/cols,maxY=doorLeaf?5.4:entranceFaceHeight(u),y=minY+(maxY-minY)*iy/rows,z=entranceFaceZ(u,y),localU=doorLeaf?u-parent.parent.position.x:u;positions.push(localU,y,z);uv.push(u/9,y/9);}
+    for(let iy=0;iy<rows;iy++)for(let ix=0;ix<cols;ix++){const a=iy*(cols+1)+ix,b=a+1,c=a+cols+1,d=c+1;indices.push(a,b,d,a,d,c);}const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geo.setIndex(indices);geo.computeVertexNormals();const mesh=new T.Mesh(geo,seamlessMaterial);mesh.name=doorLeaf?'continuous-rock-door-relief':'continuous-fixed-mountain-face';mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;
+  }
+  continuousCliffPatch(mountainCamouflage,-54,-4.5);continuousCliffPatch(mountainCamouflage,4.5,54);continuousCliffPatch(mountainCamouflage,-4.5,4.5,5.4);
+  for(let i=0;i<2;i++){const leaf=mountainMainDoor.leaves[i],cover=camouflageLeaves[i];continuousCliffPatch(cover,leaf.base-2.25,leaf.base+2.25,0,true);cover.traverse(o=>o.userData.walkDoor=true);}
+
+  function cliffJoinStrip(top){const positions=[],uv=[],indices=[],cols=300,rows=10;
+    for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){const u=-54+108*i/cols,h=top?entranceFaceHeight(u):0,startV=entranceFaceZ(u,h),endV=top?-2.5:5,v=startV+(endV-startV)*j/rows,x=-90+u*portalCos+v*portalSin,z=-110-u*portalSin+v*portalCos,endH=mountainSurfaceHeight(x,z)-surfaceRise,t=j/rows,y=h+(endH-h)*t;positions.push(u,y+(top?.012*t:0),v);uv.push(x/9,z/9);}
+    for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const a=j*(cols+1)+i,b=a+1,c=a+cols+1,d=c+1;if(top)indices.push(a,b,d,a,d,c);else indices.push(a,c,d,a,d,b);}const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(positions,3));geo.setAttribute('uv',new T.Float32BufferAttribute(uv,2));geo.setIndex(indices);geo.computeVertexNormals();const mesh=new T.Mesh(geo,seamlessMaterial);mesh.name=top?'continuous-cliff-to-ridge-join':'continuous-cliff-to-ground-join';mesh.receiveShadow=true;mountainCamouflage.add(mesh);
+  }
+  cliffJoinStrip(true);cliffJoinStrip(false);
+  for(const child of mountainPortal.children)if(child.isMesh&&child!==forecourt)child.visible=false;
+  for(const name of ['entry-gravel-verges','entry-grass-tufts'])mountainSurface.getObjectByName(name).visible=false;
+
+  // Uniform scattered small groundcover replaces the conspicuous ring of large ornamental plants.
+  const softCover=new T.Group();softCover.name='continuous-native-cliff-groundcover';mountainCamouflage.add(softCover);const softPlantMaterial=needleMaterial.clone();softPlantMaterial.color.set(0x697b54);
+  for(let k=0;k<70;k++){const u=-34+mountainRandom()*68,v=-36+mountainRandom()*36;if(Math.abs(u)<7&&v>-.5)continue;const x=-90+u*portalCos+v*portalSin,z=-110-u*portalSin+v*portalCos,y=mountainSurfaceHeight(x,z)-surfaceRise;const plant=new T.Mesh(needleGeo,softPlantMaterial);plant.position.set(u,y+.12,v);plant.scale.set(.18+mountainRandom()*.22,.15,.24+mountainRandom()*.22);plant.rotation.set(.2,k*1.37,.15);softCover.add(plant);}
+  mountainCamouflage.userData.continuousSurface=true;
 
   function viewMountainSurface(close=false){if(siteView!=='mountain')chooseSite('mountain');if(walking)exitWalk();mode='all';root.querySelectorAll('[data-floor]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.floor===mode)));mountainSurfaceInspection=true;$('rock').checked=true;$('route').checked=false;$('labels').checked=false;layout();scene.background=new T.Color(0xc4d0d5);light.position.set(-130,160,-180);fill.intensity=1.2;theta=portalAngle+.48;phi=close?1.2:.98;radius=close?49:310;target.set(close?-90:-40,floors[0].position.y+surfaceRise+(close?3:6),close?-110:-62);$('room-detail').textContent=close?'植被岩壁入口 · 关闭时覆盖门面；打开深山正门查看通行门洞。':'深山地表 · 连续岩土坡面、自然树林与嵌岩入口';dirty=true;}
   $('mountain-surface').addEventListener('click',()=>viewMountainSurface());$('mountain-gate-focus').addEventListener('click',()=>viewMountainSurface(true));$('mountain-gate-toggle').addEventListener('click',()=>{mountainMainDoor.frame.userData.manual=!mountainMainDoor.frame.userData.manual;$('mountain-gate-toggle').textContent=mountainMainDoor.frame.userData.manual?'关闭深山正门':'打开深山正门';dirty=true;});
