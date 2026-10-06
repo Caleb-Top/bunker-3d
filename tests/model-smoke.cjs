@@ -201,3 +201,40 @@ console.log('PASS: road-ground clearance, ghost door cleanup, persistent loading
 model.chooseSite('island');assert(elements.get('mountain-item-controls').hidden);assert(elements.get('mountain-room-selector').hidden);assert(elements.get('reserve-summary').hidden);assert(!elements.get('export-model').hidden,'island model export remains available');model.chooseSite('mountain');assert(!elements.get('mountain-item-controls').hidden);assert(!elements.get('mountain-room-selector').hidden);assert(!elements.get('reserve-summary').hidden);
 
 assert.equal(fixtureExport.obj.split('\n').filter(l=>l.startsWith('f ')).length,36,'vertex compaction preserves every triangle');
+
+// Trace actual surfaces through the platform footprint rather than checking only the opening label.
+model.chooseSite('island');model.scene.updateMatrixWorld(true);
+for(const floor of model.sections)for(const dx of [-3.8,0,3.8])for(const dz of [-6.7,-5,0,6.7]){
+  const ray=new T.Raycaster(new T.Vector3(model.vehicleLift.position.x+dx,floor.position.y+7,model.vehicleLift.position.z+dz),new T.Vector3(0,-1,0),0,10);
+  assert.equal(ray.intersectObject(floor,true).length,0,'lift shaft clears every basement deck and lobby');
+}
+for(const deck of [model.integralFortress.getObjectByName('shared-fortress-interior-floor'),model.integralFortress.getObjectByName('fortress-foundation-with-open-shafts')])for(const dx of [-4.4,0,4.4])for(const dz of [-7.4,0,7.4]){
+  const ray=new T.Raycaster(new T.Vector3(model.vehicleLift.position.x+dx,28,model.vehicleLift.position.z+dz),new T.Vector3(0,-1,0),0,6);
+  assert.equal(ray.intersectObject(deck,true).length,0,'surface and foundation openings clear the whole platform');
+}
+assert.equal(model.terminal.children.filter(c=>c.name==='hollow-transport-tunnel-lining').length,2);
+for(const z of [35,50,80,110,135]){
+  const ray=new T.Raycaster(new T.Vector3(-7,-53,z),new T.Vector3(0,-1,0),0,10),hits=ray.intersectObject(model.terminal,true);
+  assert(hits.length>0);assert(Math.abs(hits[0].point.y+57.2)<.002,'transport lane has one continuous grade without raised rails');
+}
+for(let k=0;k<model.islandVehicles.length;k++){
+  const car=model.islandVehicles[k],original={parent:car.parent,p:car.position.clone(),s:car.scale.clone(),r:car.rotation.clone()};
+  elements.get('lift-vehicle').value=String(k);events.get('lift-load:click')();
+  assert.equal(car.parent,model.liftPlatform);assert(Math.abs(new T.Box3().setFromObject(car).min.y-model.liftPlatform.position.y)<.002,'loaded vehicle wheels touch the platform');
+  events.get('lift-down:click')();for(let j=0;j<230;j++)model.tickIslandRevision(.05);
+  assert(model.sections.every(f=>f.visible),'transport view shows all shaft landings');assert.equal(elements.get('island-basement-select').value,'all');
+  events.get('lift-tunnel:click')();for(let j=0;j<500;j++)model.tickIslandRevision(.05);
+  assert(Math.abs(car.position.x+7)<.1,'vehicle travels inside the hollow main bore');
+  assert(car.position.z>model.terminal.position.z+86+5,'route crosses the final isolation gate');
+  assert(Math.abs(new T.Box3().setFromObject(car).min.y+57.2)<.002,'vehicle stays grounded on the transport road');
+  events.get('lift-up:click')();for(let j=0;j<850;j++)model.tickIslandRevision(.05);
+  assert.equal(car.parent,original.parent);assert(car.position.distanceTo(original.p)<.001);assert(car.scale.distanceTo(original.s)<.001);assert(Math.abs(car.rotation.y-original.r.y)<.001);
+}
+// An early return retraces the sideways platform approach instead of cutting diagonally through it.
+elements.get('lift-vehicle').value='0';events.get('lift-load:click')();events.get('lift-down:click')();for(let j=0;j<230;j++)model.tickIslandRevision(.05);events.get('lift-tunnel:click')();for(let j=0;j<20;j++)model.tickIslandRevision(.05);const partialZ=model.islandVehicles[0].position.z;events.get('lift-up:click')();for(let j=0;j<10;j++)model.tickIslandRevision(.05);assert(Math.abs(model.islandVehicles[0].position.z-partialZ)<.001,'early return stays on the horizontal approach');for(let j=0;j<300;j++)model.tickIslandRevision(.05);assert.equal(model.islandVehicles[0].parent,model.integratedRooms[0]);
+for(const action of [()=>model.toggleFortressInterior(),()=>events.get('sea-view:click')(),()=>events.get('home:click')(),()=>events.get('top:click')()]){
+  model.chooseSite('island');model.nuclearSubmarine.position.set(-75,-5,-61);model.submarineGame.start('depart');action();assert.equal(model.submarineGame.state.mode,null,'inspection view exits submarine camera');assert.equal(model.submarineGame.state.voyage,null,'inspection view cancels automatic movement');assert(elements.get('sub-navigation').hidden);assert(elements.get('crosshair').hidden);
+}
+model.chooseSite('island');model.toggleIslandSection();assert(!elements.get('island-basement-controls').hidden);model.viewSubmarinePort();assert(elements.get('island-basement-controls').hidden,'port inspection hides unrelated floor selector');model.chooseSite('mountain');
+model.chooseSite('island');model.toggleIslandSection();elements.get('island-basement-select').value='4';events.get('island-basement-select:change')();assert(!model.sections[0].visible);events.get('lift-down:click')();assert(model.sections.every(f=>f.visible),'descent restores full shaft after B5-only inspection');events.get('lift-up:click')();for(let j=0;j<300;j++)model.tickIslandRevision(.05);model.chooseSite('mountain');
+console.log('PASS: continuous lift openings, grounded nine-vehicle round trips, hollow tunnel clearance, last gate traversal and submarine inspection transitions');
